@@ -635,21 +635,29 @@ function buildRallies(){
   while(t < DUR-5){
     const n = 3 + Math.floor(rnd()*9);            // 3-11 拍
     const server = rallies.length % 2;
-    const shots=[]; let st=g(t);
+    const shots=[]; let st=g(t); let lastLand=null;  // 上一拍落点 → 决定下一拍接球位置
     for(let i=0;i<n;i++){
       const hitter=(server+i)%2;
       const type = i===0 ? 'serve' : (rnd()<0.56?'forehand':'backhand');
-      // 击球点（球员所在半场）
+      // 击球点：必须在击球者自己的半场，且回球时 = 上一拍落点附近（跑动到位，杜绝"球找手"）
       let hx, hy;
-      if(hitter===0){ hy = rr(0.4,2.2); hx = type==='backhand'? rr(1.2,4.0) : rr(6.8,9.7); }
-      else          { hy = rr(21.5,23.4); hx = type==='backhand'? rr(6.9,9.7) : rr(1.2,4.1); }
-      if(type==='serve'){ hx = hitter===0? rr(2.0,4.5) : rr(6.4,8.9); hy = hitter===0? rr(0.3,0.8) : rr(22.9,23.4); }
-      // 落点（对方半场）
-      let lx = rr(0.8,10.1), ly = hitter===0? rr(13.5,22.4) : rr(1.3,10.2);
+      if(i===0){
+        hx = hitter===0? rr(2.0,4.6) : rr(6.4,9.0);       // 发球站位偏半场一侧
+        hy = hitter===0? rr(0.3,1.0) : rr(22.9,23.5);
+      }else{
+        const [minY,maxY] = hitter===0? [0.8,11.0] : [13.2,23.3];   // 己方半场范围（不越网）
+        hy = clamp(lastLand.y + rr(-0.7,0.9), minY, maxY);
+        hx = clamp(lastLand.x + rr(-0.9,1.1), 0.9, 10.07);
+      }
+      // 落点（对方半场；回球落点相对击球点错开，形成对角/直线变化）
+      let lx, ly;
       if(type==='serve'){
-        // 发球必须落入对方发球区（深度 ≤6.4m）才符合网球常识
+        // 发球必须落入对方发球区（深度 ≤6.4m）
         if(hitter===0){ lx = rr(5.0,9.6); ly = rr(18.0,21.6); }
         else          { lx = rr(1.4,6.0); ly = rr(2.2,5.8); }
+      }else{
+        lx = clamp(hx + (rnd()<0.6? rr(1.5,4.2) : rr(-4.2,-1.5)), 0.8, 10.17);   // 横移制造斜线
+        ly = hitter===0? rr(14.0,22.6) : rr(1.2,9.6);                            // 深度在对方半场变化
       }
       const flight = type==='serve'? rr(0.50,0.68) : rr(0.60,1.00);   // 业余球速 ≈ 20–32 m/s
       // 置信度：规则信号一致性 → 高低分布
@@ -659,7 +667,8 @@ function buildRallies(){
       else conf = rr(0.72,0.96);
       const dur = g(flight);                                          // 飞行时长对齐到帧网格（≥1 帧）
       shots.push({i, hitter, type, hx, hy, lx, ly, tHit:st, tLand:g(st+dur), dur, conf});
-      st = g(st + dur + rr(0.12,0.34));                               // 对手准备时间
+      st = g(st + dur + rr(0.14,0.34));                               // 反弹后回击准备时间
+      lastLand = {x:lx, y:ly};
     }
     const r = {id:rallies.length, start:t, end:st, server, shots};
     rallies.push(r);
@@ -720,34 +729,46 @@ function buildFrames(rallies, events){
       prev[p.i]={x:p.x,y:p.y};
     });
 
-    // ── 球：全片时间连续，状态机 飞行 → 弹跳 → 被下一击球者持有 ──
-    const eFly=events.find(e=>t>=e.tHit && t<e.tLand);       // ① 正在飞行
-    let eL=null, winEnd=0;
-    if(!eFly){                                               // ② 落地弹跳（窗口不得侵入下一拍）
-      eL=events.find(e=>t>=e.tLand && t<e.tLand+0.32);
-      if(eL){
-        const nxt=events.find(e2=>e2.tHit>eL.tLand);
-        winEnd=nxt? Math.min(eL.tLand+0.32, nxt.tHit) : eL.tLand+0.32;
-      }
-    }
+    // ── 球：全程位置连续。状态机：飞行 → 反弹(钳制到回击瞬间) → 落点静止 → 分间归发球方 ──
+    // 关键前提：回球的击球点 ≈ 上一拍落点（见 buildRallies），故反弹后球无需"瞬移找人"，
+    // 直接在落点附近被同一位置的球员回击。
+    const eFly=events.find(e=>t>=e.tHit && t<e.tLand);          // ① 飞行中
+    const eL=eFly? null : events.find(e=>t>=e.tLand && t<e.tLand+0.45);   // ② 反弹窗口
     let ball;
     if(eFly){
       const u=(t-eFly.tHit)/eFly.dur;
-      const arc=eFly.type==='serve'?2.4:1.9;
-      // 抛射模型：从手高(~1m)起飞 → 抛物线 → 贴地(u→1→z=0)，与弹跳平滑衔接
+      const arc=eFly.type==='serve'?2.2:1.7;
+      const z0=eFly.type==='serve'?1.5:0.6;                     // 发球从抛球高点起飞，回球从拍面高度起飞
+      // 抛射模型：z0 起飞 → 抛物线 → 贴地(u→1→z=0)
       ball={x:lerp(eFly.hx,eFly.lx,u), y:lerp(eFly.hy,eFly.ly,u),
-            z:lerp(1.0,0,u)+Math.sin(Math.min(u,1)*Math.PI)*arc, flying:true, ev:eFly};
-    }else if(eL && t<winEnd){
-      const u=clamp((t-eL.tLand)/Math.max(winEnd-eL.tLand,0.03),0,1);
-      const dir=eL.hitter===0? -1:1;                          // 弹向对侧场内
-      ball={x:lerp(eL.lx,eL.lx+dir*0.5,u), y:eL.ly,
-            z:Math.sin(Math.min(u,1)*Math.PI)*0.2*Math.exp(-u*2.2), flying:false, ev:eL};
-    }else{
-      // ③ 持球：归「下一个击球者」，分间归下一回合发球方 —— 跟人移动，绝不瞬移
+            z:lerp(z0,0,u)+Math.sin(Math.min(u,1)*Math.PI)*arc, flying:true, ev:eFly};
+    }else if(eL){
+      // ② 落地反弹：单次起跳后衰减；回击瞬间由 ① 飞行分支优先接管——
+      //    接管点反弹高度约 0.5~0.64m，与 ① 起飞高度 0.6m 天然平滑衔接
+      const u=clamp((t-eL.tLand)/0.45,0,1);
+      ball={x:eL.lx, y:eL.ly,
+            z:Math.sin(Math.min(u,1)*Math.PI)*0.75, flying:false, ev:eL};
+    }
+    if(!ball){
+      // ③ 静止 / 归属：球不再做任何跨空间瞬移
+      // 找最近一个已落地的拍作为球当前停留点
+      let stop=null;
+      for(let k=events.length-1;k>=0;k--){ if(events[k].tLand<=t){ stop=events[k]; break; } }
       const eN=events.find(e2=>e2.tHit>t);
-      const holder=eN? eN.hitter : (events.filter(e2=>e2.tHit<t).length)%2;
-      const p=players[holder];
-      ball={x:p.x+0.4, y:p.y+0.5, z:0.95, flying:false, ev:null};
+      const isNextRallyServe = eN && eN.i===0;                  // 下一事件是新回合首拍（分间）
+      const gapToServe = isNextRallyServe? eN.tHit - t : Infinity;
+      if(eN && !isNextRallyServe){
+        // 同回合两拍之间：球停在落点原地（球员已在落点附近准备回击，视觉自洽）
+        ball={x:stop?stop.lx:CW/2, y:stop?stop.ly:1.2, z:0.045, flying:false, ev:null};
+      }else if(isNextRallyServe && gapToServe<=0.8){
+        // 分间临近发球（<0.8s）：球交到发球方手中。此时观众视线集中在发球方的
+        // 准备动作上，转移发生在回合结束数秒之后，不打断任何动作连贯性。
+        const p=players[eN.hitter];
+        ball={x:p.x+0.4, y:p.y+0.5, z:0.95, flying:false, ev:null};
+      }else{
+        // 分间早期 / 全片末尾：球停在上回合落点
+        ball={x:stop?stop.lx:CW/2, y:stop?stop.ly:1.2, z:0.045, flying:false, ev:null};
+      }
     }
 
     F.push({f, t, players, ball, dist:dist.slice()});
@@ -955,20 +976,23 @@ function drawBall(fr){
 
 function drawTraj(fr){
   if(!LAYERS.traj) return;
-  const f0=Math.max(0, fr.f-42);
-  ctx.lineWidth=2.2; ctx.lineJoin='round';
-  let started=false;
+  const f0=Math.max(0, fr.f-60);          // 2s 尾迹 @30fps
+  ctx.lineWidth=2.2; ctx.lineJoin='round'; ctx.lineCap='round';
+  let pen=false, beganF=f0;
+  // 只连「飞行段」——反弹/静止/归属切换不画，避免折返抖动
   for(let f=f0; f<=fr.f; f++){
     const F=FR[f]; const b=F.ball;
+    if(!b.flying){ pen=false; continue; }
     const P=court2px(b.x,b.y); const s=pxPerM(b.y);
     const y=P[1]-b.z*s;
-    const a=(f-f0)/Math.max(1,(fr.f-f0));
-    if(!started){ ctx.beginPath(); ctx.moveTo(P[0],y); started=true; }
+    if(!pen){ ctx.beginPath(); ctx.moveTo(P[0],y); pen=true; beganF=f; }
     else ctx.lineTo(P[0],y);
   }
-  const grd=ctx.createLinearGradient(0,0,VW,0);
-  grd.addColorStop(0,'rgba(216,243,74,.05)'); grd.addColorStop(1,'rgba(216,243,74,.85)');
-  ctx.strokeStyle=grd; ctx.stroke();
+  if(pen){
+    const a=(fr.f-beganF)/Math.max(1,(fr.f-f0));   // 尾迹的新旧渐隐
+    ctx.strokeStyle='rgba(216,243,74,'+(0.25+0.6*a).toFixed(2)+')';
+    ctx.stroke();
+  }
 }
 
 function drawHits(fr){
