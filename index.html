@@ -324,7 +324,7 @@ canvas{display:block;width:100%;height:100%}
     </div>
     <div>
       <div class="logo-t">TennisLens</div>
-      <div class="logo-s">AI 网球训练分析 · v0.9</div>
+      <div class="logo-s">AI 网球训练分析 · <span id="verTag">v1.0.3</span></div>
     </div>
   </div>
   <div class="vid-chip">
@@ -1377,7 +1377,6 @@ $('chipDur').textContent=fmtMS(DUR);
 $('chipRally').textContent=rallies.length;
 renderEvents(); updateKPI(); render();
 setTimeout(()=>toast('已加载 '+events.length+' 个击球事件 · 点击「模型能力说明」查看设计取舍'), 500);
-
 })();
 </script>
 </body>
