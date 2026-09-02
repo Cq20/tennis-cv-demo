@@ -349,7 +349,7 @@ canvas{display:block;width:100%;height:100%}
         <canvas id="cv" width="1280" height="720"></canvas>
         <div class="badge-sim"><i></i>演示数据 · 模拟视频流</div>
         <div class="hud-tr">
-          <div class="hud-box"><span class="k">帧</span><b id="hudF">0</b><span class="k">/ 1800</span></div>
+          <div class="hud-box"><span class="k">帧</span><b id="hudF">0</b><span class="k" id="hudTot">/ 5400</span></div>
           <div class="hud-box"><span class="k">回合</span><b id="hudR">–</b><span class="k" id="hudRSh">–</span></div>
         </div>
         <div class="legend-bar" id="legend"></div>
@@ -578,7 +578,7 @@ canvas{display:block;width:100%;height:100%}
 'use strict';
 
 /* ═══════════════ 常量 ═══════════════ */
-const FPS = 10, DUR = 180, FRAMES = FPS * DUR;
+const FPS = 30, DUR = 180, FRAMES = FPS * DUR;
 const SWING_W = 0.34;   // 挥拍窗口半宽（秒），ph=-1 引拍 → 0 击球 → +1 随挥
 const CW = 10.97, CL = 23.77;              // 球场宽/长（米）
 const VW = 1280, VH = 720;
@@ -631,10 +631,11 @@ function pxPerM(cy){
 // 生成回合与击球事件
 function buildRallies(){
   const rallies=[]; const events=[]; let t=2.0;
+  const g=(v)=>Math.round(v*FPS)/FPS;               // 时间戳对齐到帧网格，消除离散相位误差
   while(t < DUR-5){
     const n = 3 + Math.floor(rnd()*9);            // 3-11 拍
     const server = rallies.length % 2;
-    const shots=[]; let st=t;
+    const shots=[]; let st=g(t);
     for(let i=0;i<n;i++){
       const hitter=(server+i)%2;
       const type = i===0 ? 'serve' : (rnd()<0.56?'forehand':'backhand');
@@ -644,21 +645,26 @@ function buildRallies(){
       else          { hy = rr(21.5,23.4); hx = type==='backhand'? rr(6.9,9.7) : rr(1.2,4.1); }
       if(type==='serve'){ hx = hitter===0? rr(2.0,4.5) : rr(6.4,8.9); hy = hitter===0? rr(0.3,0.8) : rr(22.9,23.4); }
       // 落点（对方半场）
-      const lx = rr(0.8,10.1), ly = hitter===0? rr(13.5,22.4) : rr(1.3,10.2);
-      const flight = type==='serve'? rr(0.55,0.75) : rr(0.7,1.15);
+      let lx = rr(0.8,10.1), ly = hitter===0? rr(13.5,22.4) : rr(1.3,10.2);
+      if(type==='serve'){
+        // 发球必须落入对方发球区（深度 ≤6.4m）才符合网球常识
+        if(hitter===0){ lx = rr(5.0,9.6); ly = rr(18.0,21.6); }
+        else          { lx = rr(1.4,6.0); ly = rr(2.2,5.8); }
+      }
+      const flight = type==='serve'? rr(0.50,0.68) : rr(0.60,1.00);   // 业余球速 ≈ 20–32 m/s
       // 置信度：规则信号一致性 → 高低分布
       let conf;
       if(type==='serve') conf = rr(0.90,0.985);                        // 回合首拍，信号最强
       else if(rnd()<0.13) conf = rr(0.42,0.60);                        // 低置信：中场过渡拍
       else conf = rr(0.72,0.96);
-      const dur = flight;
-      shots.push({i, hitter, type, hx, hy, lx, ly, tHit:st, tLand:st+dur, dur, conf});
-      st += dur + rr(0.12,0.34);                                       // 对手准备时间
+      const dur = g(flight);                                          // 飞行时长对齐到帧网格（≥1 帧）
+      shots.push({i, hitter, type, hx, hy, lx, ly, tHit:st, tLand:g(st+dur), dur, conf});
+      st = g(st + dur + rr(0.12,0.34));                               // 对手准备时间
     }
     const r = {id:rallies.length, start:t, end:st, server, shots};
     rallies.push(r);
     shots.forEach(s=>events.push(Object.assign({rally:r.id}, s)));
-    t = st + rr(4.5,11);                                                // 分间休息
+    t = g(st + rr(4.5,11));                                           // 分间休息
   }
   return {rallies, events};
 }
@@ -712,30 +718,36 @@ function buildFrames(rallies, events){
       const q=prev[p.i];
       if(q){ const d=Math.hypot(p.x-q.x,p.y-q.y); if(d<1.2) dist[p.i]+=d; }
       prev[p.i]={x:p.x,y:p.y};
-
-      // ── 球（归属击球者的拍上 / 飞行中）
     });
-    let ball=null;
-    for(let k=0;k<events.length;k++){
-      const e=events[k];
-      if(t>=e.tHit && t<=e.tLand+0.35){
-        if(t<=e.tLand){
-          const u=(t-e.tHit)/e.dur;
-          const bx=lerp(e.hx,e.lx,u), by=lerp(e.hy,e.ly,u);
-          const arc = e.type==='serve'? 3.4 : 2.3;
-          const bz = Math.sin(u*Math.PI)*arc + 0.5;
-          ball={x:bx,y:by,z:bz,flying:true,ev:e};
-        }else{
-          const u=clamp((t-e.tLand)/0.35,0,1);
-          ball={x:lerp(e.lx, lerp(e.lx,CW/2,u*0.2),u), y:lerp(e.ly, e.ly+(e.hitter===0?-1.6:1.6),u), z:0.12*Math.exp(-u*3), flying:false, ev:e};
-        }
-        break;
+
+    // ── 球：全片时间连续，状态机 飞行 → 弹跳 → 被下一击球者持有 ──
+    const eFly=events.find(e=>t>=e.tHit && t<e.tLand);       // ① 正在飞行
+    let eL=null, winEnd=0;
+    if(!eFly){                                               // ② 落地弹跳（窗口不得侵入下一拍）
+      eL=events.find(e=>t>=e.tLand && t<e.tLand+0.32);
+      if(eL){
+        const nxt=events.find(e2=>e2.tHit>eL.tLand);
+        winEnd=nxt? Math.min(eL.tLand+0.32, nxt.tHit) : eL.tLand+0.32;
       }
     }
-    if(!ball){ // 分间：球在发球方手上
-      const holder = rallies.filter(r=>r.end<t).length % 2;
+    let ball;
+    if(eFly){
+      const u=(t-eFly.tHit)/eFly.dur;
+      const arc=eFly.type==='serve'?2.4:1.9;
+      // 抛射模型：从手高(~1m)起飞 → 抛物线 → 贴地(u→1→z=0)，与弹跳平滑衔接
+      ball={x:lerp(eFly.hx,eFly.lx,u), y:lerp(eFly.hy,eFly.ly,u),
+            z:lerp(1.0,0,u)+Math.sin(Math.min(u,1)*Math.PI)*arc, flying:true, ev:eFly};
+    }else if(eL && t<winEnd){
+      const u=clamp((t-eL.tLand)/Math.max(winEnd-eL.tLand,0.03),0,1);
+      const dir=eL.hitter===0? -1:1;                          // 弹向对侧场内
+      ball={x:lerp(eL.lx,eL.lx+dir*0.5,u), y:eL.ly,
+            z:Math.sin(Math.min(u,1)*Math.PI)*0.2*Math.exp(-u*2.2), flying:false, ev:eL};
+    }else{
+      // ③ 持球：归「下一个击球者」，分间归下一回合发球方 —— 跟人移动，绝不瞬移
+      const eN=events.find(e2=>e2.tHit>t);
+      const holder=eN? eN.hitter : (events.filter(e2=>e2.tHit<t).length)%2;
       const p=players[holder];
-      ball={x:p.x+0.35, y:p.y+0.1, z:0.9, flying:false, ev:null};
+      ball={x:p.x+0.4, y:p.y+0.5, z:0.95, flying:false, ev:null};
     }
 
     F.push({f, t, players, ball, dist:dist.slice()});
@@ -1205,6 +1217,7 @@ function render(){
 
   // HUD
   $('hudF').textContent=cur;
+  $('hudTot').textContent='/ '+FRAMES;
   const rall = rallies.find(r=>fr.t>=r.start && fr.t<=r.end);
   $('hudR').textContent = rall? 'R'+(rall.id+1) : '–';
   $('hudRSh').textContent = rall? (rall.shots.length+' 拍') : '分间';
