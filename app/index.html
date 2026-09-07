@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1017">
+<title>TennisLens</title>
+<style>
+:root{
+  --bg:#0a1017; --surface:#131d29; --surface2:#182533; --line:#243547;
+  --text:#e8f0f8; --text2:#93a7bd; --text3:#61788f;
+  --pri:#3b9dff; --ok:#2fd6a4; --grad:linear-gradient(135deg,#3b9dff,#2fd6a4);
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;
+  min-height:100vh;min-height:100dvh}
+.wrap{max-width:560px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+  padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+
+/* 顶栏 */
+.top{padding:calc(14px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px}
+.mark{width:34px;height:34px;border-radius:10px;background:var(--grad);display:grid;place-items:center;flex:0 0 auto}
+.mark svg{width:20px;height:20px}
+.top h1{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.top p{font-size:10.5px;color:var(--text3)}
+
+/* 视图容器 */
+.view{flex:1;display:none;flex-direction:column;min-height:0}
+.view.on{display:flex}
+.frame-view{flex:1;display:flex;flex-direction:column;min-height:0}
+.frame-bar{padding:10px 16px 8px;display:flex;align-items:center;gap:8px}
+.frame-bar h2{font-size:15px;font-weight:800}
+.frame-bar .back{color:var(--pri);font-size:13px;font-weight:750;background:none;border:0;cursor:pointer}
+.iframe-holder{flex:1;position:relative;min-height:0}
+.iframe-holder iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+.holder-pad{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* 首页 */
+.home{padding:6px 16px 16px;display:flex;flex-direction:column;gap:14px}
+.hero{border-radius:16px;padding:18px;background:var(--surface);border:1px solid var(--line)}
+.hero h2{font-size:16px;font-weight:800;margin-bottom:2px}
+.hero p{font-size:12px;color:var(--text2)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.st{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center}
+.st b{font-size:18px;font-weight:850;font-family:ui-monospace,monospace;display:block}
+.st span{font-size:10px;color:var(--text3);font-weight:700}
+.entries{display:flex;flex-direction:column;gap:10px}
+.entry{display:flex;align-items:center;gap:13px;padding:15px;border-radius:14px;
+  background:var(--surface);border:1px solid var(--line);cursor:pointer;
+  text-decoration:none;color:inherit;transition:all .2s var(--e)}
+.entry:hover{border-color:var(--pri);transform:translateY(-2px)}
+.entry .ico{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto;
+  background:rgba(59,157,255,.14);color:var(--pri)}
+.entry.g .ico{background:rgba(47,214,164,.14);color:var(--ok)}
+.entry svg{width:24px;height:24px}
+.entry .tx{flex:1;min-width:0}
+.entry .tx b{font-size:14.5px;font-weight:800;display:block}
+.entry .tx span{font-size:11.5px;color:var(--text2);line-height:1.5;display:block;margin-top:2px}
+.entry .arrow{color:var(--text3);font-size:18px}
+
+/* Tab 栏 */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;
+  padding:6px 10px calc(8px + env(safe-area-inset-bottom));
+  background:rgba(10,16,23,.88);backdrop-filter:blur(16px);border-top:1px solid var(--line)}
+.tabbar-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0;
+  color:var(--text3);font-size:10.5px;font-weight:750;border-radius:10px;cursor:pointer;
+  background:none;border:0;transition:color .15s}
+.tab svg{width:21px;height:21px}
+.tab.on{color:var(--pri)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- ── 首页 ── -->
+  <div class="view on" id="view-home">
+    <div class="top">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9"/><path d="M3.6 6.6c4.2 1.4 8.4 1.4 12.6 0M3.6 17.4c4.2-1.4 8.4-1.4 12.6 0"/>
+        </svg>
+      </div>
+      <div><h1>TennisLens</h1><p>AI 网球训练分析</p></div>
+    </div>
+    <div class="home">
+      <div class="hero">
+        <h2 id="greet">今天练了吗？</h2>
+        <p id="greetSub">记录、分析、进步 —— 全在本地</p>
+        <div class="stats">
+          <div class="st"><b id="hCount">0</b><span>总训练</span></div>
+          <div class="st"><b id="hMin">0</b><span>总时长(分)</span></div>
+          <div class="st"><b id="hHits">0</b><span>总击球</span></div>
+        </div>
+      </div>
+      <div class="entries">
+        <div class="entry" id="goRealtime">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.5"/><path d="M9 6l1.2-2h3.6L15 6"/></svg></div>
+          <div class="tx"><b>实时动作分析</b><span>打开摄像头 · 33 点骨骼实时跟随 · 全程本地计算</span></div>
+          <div class="arrow">›</div>
+        </div>
+        <div class="entry g" id="goVideo">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l2.5 7 4-15 2.5 8h4"/></svg></div>
+          <div class="tx"><b>对局技术分析</b><span>上传比赛视频 · 动作段检测 · 类型分布与统计</span></div>
+          <div class="arrow">›</div>
+        </div>
+        <div class="entry" id="goLabel">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4l10-10a2.4 2.4 0 0 0-3.4-3.4L4.6 16.6z"/></svg></div>
+          <div class="tx"><b>动作标注</b><span>逐帧标注动作起止 · 沉淀评估真值</span></div>
+          <div class="arrow">›</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 分析 ── -->
+  <div class="view frame-view" id="view-analysis">
+    <div class="frame-bar">
+      <h2 id="anaTitle">实时动作分析</h2>
+    </div>
+    <div class="iframe-holder">
+      <div class="holder-pad">
+        <div style="padding:20px;text-align:center;color:var(--text3);font-size:13px" id="anaPick">
+          <p style="margin-bottom:14px">选择分析模式：</p>
+          <button class="btn pri" style="padding:12px 18px;border-radius:10px;border:0;background:var(--pri);color:#fff;font-weight:800;cursor:pointer;margin:0 6px" onclick="loadAna('realtime')">实时姿态</button>
+          <button class="btn" style="padding:12px 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);color:var(--text);font-weight:800;cursor:pointer;margin:0 6px" onclick="loadAna('video')">对局分析</button>
+        </div>
+        <iframe id="anaFrame" style="display:none;border:0;width:100%;height:100%"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 我的 ── -->
+  <div class="view frame-view" id="view-profile">
+    <div class="frame-bar"><h2>训练记录</h2></div>
+    <div class="iframe-holder"><iframe id="profileFrame" data-src="trainer.html"></iframe></div>
+  </div>
+</div>
+
+<!-- Tab 栏 -->
+<nav class="tabbar">
+  <div class="tabbar-in">
+    <button class="tab on" data-view="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      首页
+    </button>
+    <button class="tab" data-view="analysis">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l2.5 7 4-15 2.5 8h4"/></svg>
+      分析
+    </button>
+    <button class="tab" data-view="profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+      我的
+    </button>
+  </div>
+</nav>
+
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ── 路由 ── */
+const views = ['home','analysis','profile'];
+let loaded = {analysis:false, profile:false};
+
+function go(name) {
+  views.forEach(v => $('view-'+v).classList.toggle('on', v === name));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.view === name));
+  if (name === 'analysis' && !loaded.analysis) {
+    $('anaFrame').src = '../mobile/index.html';
+    $('anaFrame').style.display = 'block';
+    $('anaPick').style.display = 'none';
+    loaded.analysis = true;
+  }
+  if (name === 'profile' && !loaded.profile) {
+    $('profileFrame').src = 'trainer.html';
+    loaded.profile = true;
+  }
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll('.tab').forEach(t =>
+  t.addEventListener('click', () => go(t.dataset.view)));
+
+function loadAna(mode) {
+  $('anaFrame').src = mode === 'realtime' ? '../mobile/index.html' : '../index.html';
+  $('anaFrame').style.display = 'block';
+  $('anaTitle').textContent = mode === 'realtime' ? '实时动作分析' : '对局技术分析';
+  $('anaPick').style.display = 'none';
+  loaded.analysis = true;
+}
+window.loadAna = loadAna;
+
+/* ── 首页数据（读训练记录器的 localStorage，同域共享）── */
+function refreshHome() {
+  let recs = [];
+  try { recs = JSON.parse(localStorage.getItem('tennis-trainer-records-v1') || '[]'); } catch(e){}
+  const n = recs.length;
+  const totalMin = recs.reduce((s,r) => s + (r.minutes||0), 0);
+  const totalHits = recs.reduce((s,r) => s + (r.hits||0), 0);
+  $('hCount').textContent = n;
+  $('hMin').textContent = totalMin;
+  $('hHits').textContent = totalHits;
+  const h = new Date().getHours();
+  $('greet').textContent = h < 11 ? '早上好，去球场吗？' : h < 18 ? '下午来一局？' : '晚间训练时间';
+  $('greetSub').textContent = n ? '已累计 ' + n + ' 次训练记录，继续保持' : '记录、分析、进步 —— 全在本地';
+}
+
+/* ── 入口跳转（分析页内嵌）── */
+$('goRealtime').addEventListener('click', () => { go('analysis'); loadAna('realtime'); });
+$('goVideo').addEventListener('click', () => { go('analysis'); loadAna('video'); });
+$('goLabel').addEventListener('click', () => {
+  window.open('../tools/annotator.html', '_blank');
+});
+
+/* ── 主题同步（跟随 trainer 的偏好）── */
+try {
+  const th = localStorage.getItem('tennis-trainer-theme');
+  if (th) document.documentElement.setAttribute('data-theme', th);
+} catch(e){}
+
+refreshHome();
+window.addEventListener('focus', refreshHome);   // 从训练页返回时刷新统计
+})();
+</script>
+</body>
+</html>

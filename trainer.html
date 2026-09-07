@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d7ff2">
+<title>网球训练记录器</title>
+<style>
+/* ========== 设计令牌 ========== */
+:root{
+  --bg:#f2f6fb;
+  --bg-grad-1:#e8f2ff;
+  --bg-grad-2:#e8faf3;
+  --surface:#ffffff;
+  --surface-2:#f7fafd;
+  --text:#0f1c2e;
+  --text-2:#5a6b80;
+  --text-3:#9aa8ba;
+  --border:#e5edf5;
+  --primary:#1d7ff2;
+  --primary-soft:rgba(29,127,242,.10);
+  --accent:#12b886;
+  --accent-soft:rgba(18,184,134,.12);
+  --danger:#ef4444;
+  --danger-soft:rgba(239,68,68,.10);
+  --shadow-sm:0 1px 2px rgba(15,28,46,.05), 0 2px 8px rgba(15,28,46,.04);
+  --shadow-md:0 2px 6px rgba(15,28,46,.05), 0 14px 32px rgba(15,28,46,.07);
+  --shadow-lg:0 12px 32px rgba(29,127,242,.22);
+  --r-xl:22px; --r-lg:18px; --r-md:13px; --r-sm:9px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --c-forehand:#1d7ff2;
+  --c-backhand:#12b886;
+  --c-serve:#f59e0b;
+  --c-match:#8b5cf6;
+}
+[data-theme="dark"]{
+  --bg:#0c1420;
+  --bg-grad-1:#122238;
+  --bg-grad-2:#0e2a26;
+  --surface:#141f2e;
+  --surface-2:#1a2739;
+  --text:#eaf1f8;
+  --text-2:#9fb0c4;
+  --text-3:#6b7d92;
+  --border:#243347;
+  --primary:#4d9dff;
+  --primary-soft:rgba(77,157,255,.16);
+  --accent:#2fd6a4;
+  --accent-soft:rgba(47,214,164,.16);
+  --danger:#ff6b6b;
+  --danger-soft:rgba(255,107,107,.14);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.22);
+  --shadow-md:0 2px 6px rgba(0,0,0,.3), 0 16px 36px rgba(0,0,0,.38);
+  --shadow-lg:0 12px 34px rgba(0,0,0,.5);
+  --c-forehand:#4d9dff;
+  --c-backhand:#2fd6a4;
+  --c-serve:#fbbf24;
+  --c-match:#a78bfa;
+}
+
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);
+  background-image:
+    radial-gradient(900px 520px at 8% -8%, var(--bg-grad-1), transparent 62%),
+    radial-gradient(760px 480px at 102% 4%, var(--bg-grad-2), transparent 60%);
+  background-attachment:fixed;
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.6;
+  transition:background-color .35s var(--ease), color .35s var(--ease);
+  min-height:100vh;
+}
+button,input,textarea{font-family:inherit;font-size:inherit;color:inherit;}
+input,textarea,button{outline:none;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;border:3px solid transparent;background-clip:padding-box;}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 18px 72px;}
+
+/* ========== 顶栏 ========== */
+.topbar{
+  position:sticky;top:0;z-index:40;
+  backdrop-filter:blur(16px) saturate(180%);
+  -webkit-backdrop-filter:blur(16px) saturate(180%);
+  background:var(--surface);
+  background:color-mix(in srgb, var(--surface) 78%, transparent);
+  border-bottom:1px solid var(--border);
+  margin-bottom:26px;
+}
+[data-theme="dark"] .topbar{background:rgba(12,20,32,.82);}
+.topbar-in{
+  max-width:1180px;margin:0 auto;padding:14px 18px;
+  display:flex;align-items:center;gap:14px;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;}
+.brand-mark{
+  width:42px;height:42px;border-radius:13px;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  display:grid;place-items:center;
+  box-shadow:var(--shadow-lg);
+}
+.brand-mark svg{width:24px;height:24px;}
+.brand-txt h1{
+  margin:0;font-size:18px;font-weight:800;letter-spacing:-.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.brand-txt p{margin:0;font-size:12px;color:var(--text-3);}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.theme-btn{
+  width:40px;height:40px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface);cursor:pointer;display:grid;place-items:center;
+  color:var(--text-2);transition:all .25s var(--ease);box-shadow:var(--shadow-sm);
+}
+.theme-btn:hover{transform:translateY(-2px);color:var(--primary);border-color:var(--primary);}
+.theme-btn svg{width:19px;height:19px;}
+[data-theme="light"] .i-moon{display:block;}
+[data-theme="light"] .i-sun{display:none;}
+[data-theme="dark"] .i-moon{display:none;}
+[data-theme="dark"] .i-sun{display:block;}
+
+/* ========== 通用卡片 ========== */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r-xl);
+  box-shadow:var(--shadow-md);
+}
+.card-pad{padding:20px;}
+.card-title{
+  display:flex;align-items:center;gap:9px;
+  font-size:14px;font-weight:800;letter-spacing:.2px;margin:0 0 16px;
+}
+.card-title .dot{width:7px;height:7px;border-radius:99px;background:linear-gradient(135deg,var(--primary),var(--accent));}
+.card-title .sub{margin-left:auto;font-size:12px;font-weight:600;color:var(--text-3);}
+
+/* ========== 统计卡 ========== */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+.stat{
+  position:relative;overflow:hidden;
+  padding:18px 18px 16px;border-radius:var(--r-lg);
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);
+  transition:transform .3s var(--ease), box-shadow .3s var(--ease);
+}
+.stat:hover{transform:translateY(-3px);box-shadow:var(--shadow-md),0 18px 34px rgba(15,28,46,.10);}
+.stat::after{
+  content:"";position:absolute;right:-24px;top:-24px;width:92px;height:92px;border-radius:99px;
+  background:var(--tone,var(--primary-soft));filter:blur(2px);
+}
+.stat-ico{
+  width:36px;height:36px;border-radius:11px;display:grid;place-items:center;margin-bottom:10px;
+  background:var(--tone,var(--primary-soft));color:var(--tone-c,var(--primary));
+  position:relative;z-index:1;
+}
+.stat-ico svg{width:19px;height:19px;}
+.stat-label{font-size:12px;color:var(--text-3);font-weight:700;position:relative;z-index:1;}
+.stat-val{
+  font-size:29px;font-weight:850;letter-spacing:-1px;line-height:1.25;
+  font-variant-numeric:tabular-nums;position:relative;z-index:1;
+}
+.stat-val small{font-size:13px;font-weight:700;color:var(--text-3);margin-left:3px;letter-spacing:0;}
+
+/* ========== 主栅格 ========== */
+.layout{display:grid;grid-template-columns:372px minmax(0,1fr);gap:18px;align-items:start;}
+.col-left{position:sticky;top:88px;display:grid;gap:18px;}
+.col-right{display:grid;gap:18px;min-width:0;}
+
+/* ========== 表单 ========== */
+.field{margin-bottom:15px;}
+.field:last-of-type{margin-bottom:0;}
+.label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;margin-bottom:8px;}
+.label .req{color:var(--danger);font-weight:800;}
+.label .hint{margin-left:auto;font-size:11px;font-weight:600;color:var(--text-3);}
+
+.types{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.type-opt{position:relative;}
+.type-opt input{position:absolute;opacity:0;width:0;height:0;}
+.type-card{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 12px;border-radius:var(--r-md);cursor:pointer;
+  border:1.5px solid var(--border);background:var(--surface-2);
+  transition:all .25s var(--ease);user-select:none;
+}
+.type-card:hover{transform:translateY(-2px);border-color:var(--tc);box-shadow:var(--shadow-sm);}
+.type-ico{
+  width:32px;height:32px;flex:0 0 auto;border-radius:10px;display:grid;place-items:center;
+  background:var(--tc-soft);color:var(--tc);transition:all .25s var(--ease);
+}
+.type-ico svg{width:17px;height:17px;}
+.type-name{font-size:13.5px;font-weight:750;line-height:1.3;}
+.type-desc{font-size:11px;color:var(--text-3);font-weight:600;}
+.type-opt input:checked + .type-card{
+  border-color:var(--tc);background:var(--tc-soft);
+  box-shadow:0 0 0 3.5px color-mix(in srgb, var(--tc) 16%, transparent);
+}
+.type-opt input:checked + .type-card .type-ico{background:var(--tc);color:#fff;transform:scale(1.06);}
+.type-opt input:focus-visible + .type-card{box-shadow:0 0 0 3.5px var(--primary-soft);}
+
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.input-box{position:relative;}
+.input{
+  width:100%;padding:12px 46px 12px 14px;border-radius:var(--r-md);
+  border:1.5px solid var(--border);background:var(--surface-2);
+  font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;
+  transition:border-color .2s var(--ease), background .2s var(--ease), box-shadow .2s var(--ease);
+}
+.input::placeholder{color:var(--text-3);font-weight:600;}
+.input:focus{border-color:var(--primary);background:var(--surface);box-shadow:0 0 0 3.5px var(--primary-soft);}
+.input:focus::placeholder{color:transparent;}
+.suffix{
+  position:absolute;right:13px;top:50%;transform:translateY(-50%);
+  font-size:12px;font-weight:700;color:var(--text-3);pointer-events:none;
+}
+textarea.input{padding:12px 14px;font-weight:600;resize:vertical;min-height:76px;line-height:1.55;}
+.input.err{border-color:var(--danger);background:var(--danger-soft);}
+.input.err:focus{box-shadow:0 0 0 3.5px var(--danger-soft);}
+.err-msg{
+  display:none;align-items:center;gap:5px;
+  margin-top:6px;font-size:12px;font-weight:700;color:var(--danger);
+  animation:shakeIn .32s var(--ease);
+}
+.err-msg.on{display:flex;}
+.err-msg svg{width:13px;height:13px;flex:0 0 auto;}
+@keyframes shakeIn{
+  0%{opacity:0;transform:translateX(-6px);}
+  60%{transform:translateX(2px);}
+  100%{opacity:1;transform:translateX(0);}
+}
+
+.btn{
+  width:100%;border:0;cursor:pointer;border-radius:var(--r-md);
+  padding:14px 18px;font-size:15px;font-weight:800;letter-spacing:.3px;color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  box-shadow:var(--shadow-lg);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .22s var(--ease), box-shadow .22s var(--ease), filter .22s var(--ease);
+  position:relative;overflow:hidden;
+}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.05);}
+.btn:active{transform:translateY(0) scale(.985);}
+.btn svg{width:18px;height:18px;}
+.btn::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.35),transparent 70%);
+  transform:translateX(-120%);transition:transform .7s var(--ease);
+}
+.btn:hover::after{transform:translateX(120%);}
+
+/* ========== 图表 ========== */
+.chart-grid{display:grid;grid-template-columns:186px minmax(0,1fr);gap:20px;align-items:center;}
+.donut-wrap{position:relative;width:186px;height:186px;margin:0 auto;}
+.donut{width:186px;height:186px;transform:rotate(-90deg);}
+.donut circle{fill:none;stroke-linecap:round;transition:stroke-dasharray .75s var(--ease), stroke-dashoffset .75s var(--ease);}
+.donut-center{
+  position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none;
+}
+.donut-center .n{font-size:27px;font-weight:850;letter-spacing:-1px;line-height:1.1;font-variant-numeric:tabular-nums;}
+.donut-center .t{font-size:11px;font-weight:700;color:var(--text-3);}
+.legend{display:grid;gap:11px;min-width:0;}
+.lg{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:10px;}
+.lg-dot{width:10px;height:10px;border-radius:99px;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 18%,transparent);}
+.lg-name{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;min-width:0;}
+.lg-name span{color:var(--text-3);font-weight:600;font-size:11.5px;}
+.lg-pct{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right;}
+.bar-track{grid-column:2 / -1;height:7px;border-radius:99px;background:var(--surface-2);overflow:hidden;border:1px solid var(--border);}
+.bar-fill{
+  height:100%;border-radius:99px;background:linear-gradient(90deg,var(--c),color-mix(in srgb,var(--c) 62%,#fff));
+  transition:width .75s var(--ease);min-width:0;
+}
+[data-theme="dark"] .bar-fill{background:linear-gradient(90deg,var(--c),color-mix(in srgb,var(--c) 62%,#000));}
+.chart-empty{
+  grid-column:1 / -1;text-align:center;padding:22px 10px;color:var(--text-3);
+  font-size:13px;font-weight:600;
+}
+
+/* ========== 记录列表 ========== */
+.list-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.chip{
+  padding:5px 12px;border-radius:99px;font-size:12px;font-weight:750;cursor:pointer;
+  border:1.5px solid var(--border);background:var(--surface-2);color:var(--text-2);
+  transition:all .22s var(--ease);white-space:nowrap;
+}
+.chip:hover{border-color:var(--primary);color:var(--primary);}
+.chip.on{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--primary) 34%,transparent);}
+.list{display:grid;gap:12px;}
+.rec{
+  position:relative;overflow:hidden;
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;
+  padding:14px 16px;border-radius:var(--r-lg);
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm);
+  transition:transform .28s var(--ease), box-shadow .28s var(--ease), border-color .28s var(--ease);
+  animation:recIn .42s var(--ease) both;
+}
+.rec::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c);
+}
+.rec:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:color-mix(in srgb,var(--c) 40%,var(--border));}
+@keyframes recIn{from{opacity:0;transform:translateY(10px) scale(.99);}to{opacity:1;transform:none;}}
+.rec.out{animation:recOut .3s var(--ease) forwards;}
+@keyframes recOut{to{opacity:0;transform:translateX(28px) scale(.96);max-height:0;padding-top:0;padding-bottom:0;margin-bottom:-12px;}}
+.rec-ico{
+  width:42px;height:42px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto;
+  background:var(--surface-2);color:var(--c);
+  background:color-mix(in srgb,var(--c) 13%,transparent);
+}
+.rec-ico svg{width:21px;height:21px;}
+.rec-main{min-width:0;}
+.rec-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.rec-type{font-size:14.5px;font-weight:800;}
+.tag{
+  padding:2px 8px;border-radius:99px;font-size:11px;font-weight:750;
+  background:var(--surface-2);color:var(--c);
+  background:color-mix(in srgb,var(--c) 13%,transparent);
+}
+.rec-time{font-size:11.5px;color:var(--text-3);font-weight:650;font-variant-numeric:tabular-nums;}
+.rec-metrics{display:flex;align-items:center;gap:14px;margin-top:5px;flex-wrap:wrap;}
+.metric{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:750;color:var(--text-2);font-variant-numeric:tabular-nums;}
+.metric svg{width:13px;height:13px;color:var(--text-3);}
+.metric b{color:var(--text);font-weight:850;}
+.rec-note{
+  margin-top:7px;font-size:12.5px;color:var(--text-2);
+  padding:7px 11px;border-radius:var(--r-sm);background:var(--surface-2);
+  border-left:2.5px solid var(--c);
+  border-left-color:color-mix(in srgb,var(--c) 55%,transparent);
+  word-break:break-word;line-height:1.55;
+}
+.del{
+  width:34px;height:34px;flex:0 0 auto;border-radius:10px;cursor:pointer;
+  border:1.5px solid var(--border);background:var(--surface);color:var(--text-3);
+  display:grid;place-items:center;transition:all .22s var(--ease);
+}
+.del:hover{background:var(--danger-soft);border-color:var(--danger);color:var(--danger);transform:scale(1.08) rotate(6deg);}
+.del svg{width:16px;height:16px;}
+
+.empty{text-align:center;padding:44px 20px;}
+.empty svg{width:76px;height:76px;opacity:.9;margin-bottom:14px;}
+.empty h3{margin:0 0 6px;font-size:15.5px;font-weight:800;}
+.empty p{margin:0;font-size:13px;color:var(--text-3);font-weight:600;}
+
+/* ========== 底部数据 ========== */
+.foot{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin-top:20px;padding:14px 18px;border-radius:var(--r-lg);
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm);
+  font-size:12px;font-weight:650;color:var(--text-3);
+}
+.foot b{color:var(--text-2);font-weight:800;}
+.foot .sp{margin-left:auto;display:flex;gap:8px;}
+.ghost-btn{
+  padding:7px 13px;border-radius:var(--r-sm);cursor:pointer;font-size:12px;font-weight:750;
+  border:1.5px solid var(--border);background:var(--surface-2);color:var(--text-2);
+  transition:all .22s var(--ease);
+}
+.ghost-btn:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-soft);}
+
+/* ========== Toast ========== */
+.toast-host{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;display:grid;gap:10px;width:min(420px,calc(100vw - 32px));}
+.toast{
+  display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);
+  font-size:13.5px;font-weight:700;animation:toastIn .38s var(--ease);
+}
+.toast.out{animation:toastOut .3s var(--ease) forwards;}
+.toast .ti{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;background:var(--accent-soft);color:var(--accent);}
+.toast.warn .ti{background:var(--danger-soft);color:var(--danger);}
+.toast .ti svg{width:16px;height:16px;}
+.toast .tx{flex:1;min-width:0;}
+.toast .undo{
+  border:0;background:var(--primary-soft);color:var(--primary);cursor:pointer;
+  padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:800;white-space:nowrap;
+  transition:all .2s var(--ease);
+}
+.toast .undo:hover{background:var(--primary);color:#fff;}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.96);}to{opacity:1;transform:none;}}
+@keyframes toastOut{to{opacity:0;transform:translateY(12px) scale(.97);}}
+
+/* ========== 响应式 ========== */
+@media (max-width:960px){
+  .layout{grid-template-columns:1fr;}
+  .col-left{position:static;}
+}
+@media (max-width:720px){
+  .wrap{padding:0 13px 92px;}
+  .topbar-in{padding:12px 13px;}
+  .brand-txt h1{font-size:16.5px;}
+  .stats{grid-template-columns:1fr;gap:11px;}
+  .stat{padding:15px 16px;}
+  .stat-val{font-size:26px;}
+  .chart-grid{grid-template-columns:1fr;gap:18px;}
+  .donut-wrap,.donut{width:160px;height:160px;}
+  .card-pad{padding:17px;}
+  .row-2{grid-template-columns:1fr;}
+  .rec{grid-template-columns:auto minmax(0,1fr) 34px;gap:11px;padding:13px 14px;}
+  .rec-ico{width:38px;height:38px;border-radius:12px;}
+  .rec-ico svg{width:19px;height:19px;}
+  .del{width:32px;height:32px;}
+  .foot{justify-content:center;text-align:center;}
+  .foot .sp{margin-left:0;width:100%;justify-content:center;}
+}
+@media (max-width:380px){
+  .types{grid-template-columns:1fr;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M3.6 6.6c4.2 1.4 8.4 1.4 12.6 0M3.6 17.4c4.2-1.4 8.4-1.4 12.6 0"/>
+        </svg>
+      </div>
+      <div class="brand-txt">
+        <h1>网球训练记录器</h1>
+        <p>Train smarter · 记录每一次挥拍</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="theme-btn" id="themeBtn" title="切换深/浅色主题" aria-label="切换主题">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- 统计概览 -->
+  <section class="stats">
+    <div class="stat" style="--tone:var(--primary-soft);--tone-c:var(--primary)">
+      <div class="stat-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5 7 4-15 2.5 8h4"/></svg>
+      </div>
+      <div class="stat-label">总训练次数</div>
+      <div class="stat-val" id="sCount">0<small>次</small></div>
+    </div>
+    <div class="stat" style="--tone:var(--accent-soft);--tone-c:var(--accent)">
+      <div class="stat-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
+      </div>
+      <div class="stat-label">总训练时长</div>
+      <div class="stat-val" id="sMinutes">0<small>分钟</small></div>
+    </div>
+    <div class="stat" style="--tone:rgba(139,92,246,.12);--tone-c:#8b5cf6">
+      <div class="stat-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.4 4 6.6 7.3 6.6 10.2A6.6 6.6 0 0 1 12 20a6.6 6.6 0 0 1-6.6-6.8C5.4 10.3 7.6 7 12 3z"/></svg>
+      </div>
+      <div class="stat-label">总击球数</div>
+      <div class="stat-val" id="sHits">0<small>次</small></div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <!-- 左：录入表单 -->
+    <div class="col-left">
+      <div class="card card-pad">
+        <h2 class="card-title"><span class="dot"></span>记录一次训练<span class="sub" id="formSub">今天第 0 次</span></h2>
+
+        <div class="field">
+          <div class="label">训练类型 <span class="req">*</span></div>
+          <div class="types" id="typeGroup"></div>
+        </div>
+
+        <div class="field row-2">
+          <div>
+            <div class="label">训练时长 <span class="req">*</span></div>
+            <div class="input-box">
+              <input class="input" id="fMinutes" type="text" inputmode="numeric" placeholder="60" autocomplete="off" aria-describedby="eMinutes">
+              <span class="suffix">分钟</span>
+            </div>
+            <div class="err-msg" id="eMinutes"></div>
+          </div>
+          <div>
+            <div class="label">击球次数 <span class="req">*</span></div>
+            <div class="input-box">
+              <input class="input" id="fHits" type="text" inputmode="numeric" placeholder="300" autocomplete="off" aria-describedby="eHits">
+              <span class="suffix">次</span>
+            </div>
+            <div class="err-msg" id="eHits"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">备注 <span class="hint"><span id="noteCount">0</span>/100</span></div>
+          <div class="input-box">
+            <textarea class="input" id="fNote" maxlength="100" placeholder="今天状态不错，正手抽球稳定多了…"></textarea>
+          </div>
+          <div class="err-msg" id="eNote"></div>
+        </div>
+
+        <div class="field" style="margin-top:18px;">
+          <button class="btn" id="submitBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            保存训练记录
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：图表 + 列表 -->
+    <div class="col-right">
+      <div class="card card-pad">
+        <h2 class="card-title"><span class="dot"></span>训练类型分布<span class="sub" id="chartSub">按击球数占比</span></h2>
+        <div class="chart-grid">
+          <div class="donut-wrap">
+            <svg class="donut" viewBox="0 0 140 140" id="donut" role="img" aria-label="训练类型占比环形图">
+              <circle cx="70" cy="70" r="54" stroke="var(--surface-2)" stroke-width="17"></circle>
+            </svg>
+            <div class="donut-center">
+              <div class="n" id="donutNum">0</div>
+              <div class="t">总击球数</div>
+            </div>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+
+      <div class="card card-pad">
+        <h2 class="card-title"><span class="dot"></span>训练记录<span class="sub" id="listCount">0 条</span></h2>
+        <div class="list-head" id="filterBar"></div>
+        <div class="list" id="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>数据保存在本浏览器 <b>localStorage</b>，刷新不丢失 · 共 <b id="footCount">0</b> 条</span>
+    <span class="sp">
+      <button class="ghost-btn" id="clearBtn">清空全部记录</button>
+    </span>
+  </div>
+</div>
+
+<div class="toast-host" id="toastHost"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============ 常量 & 配置 ============ */
+  const STORE_KEY = 'tennis-trainer-records-v1';
+  const THEME_KEY = 'tennis-trainer-theme';
+  const MAX_MINUTES = 1440;   // 单日上限
+  const MAX_HITS = 200000;
+  const NOTE_MAX = 100;
+
+  const TYPES = [
+    { id: 'forehand', name: '正手练习', desc: 'Forehand', color: 'var(--c-forehand)', soft: 'rgba(29,127,242,.12)' },
+    { id: 'backhand', name: '反手练习', desc: 'Backhand', color: 'var(--c-backhand)', soft: 'rgba(18,184,134,.14)' },
+    { id: 'serve',    name: '发球练习', desc: 'Serve',    color: 'var(--c-serve)',    soft: 'rgba(245,158,11,.14)' },
+    { id: 'match',    name: '全场对抗', desc: 'Match',    color: 'var(--c-match)',    soft: 'rgba(139,92,246,.14)' }
+  ];
+  const TYPE_MAP = TYPES.reduce((m, t) => (m[t.id] = t, m), {});
+
+  const ICONS = {
+    forehand: '<circle cx="12" cy="12" r="2.6"/><path d="M12 2.6v5.6M12 15.8v5.6M4.4 7.4l2.8 1.6M16.8 15l2.8 1.6M4.4 16.6l2.8-1.6M16.8 9l2.8-1.6"/>',
+    backhand: '<circle cx="12" cy="12" r="2.6"/><path d="M5.5 5.5l3.4 3.4M15.1 15.1l3.4 3.4M18.5 5.5L15.1 8.9M8.9 15.1L5.5 18.5"/>',
+    serve:    '<path d="M12 21V9"/><circle cx="12" cy="6" r="3"/><path d="M5 13c2 1.6 4.4 2.4 7 2.4s5-.8 7-2.4"/>',
+    match:    '<path d="M3 17h18M6.5 17V8M17.5 17V8"/><path d="M6.5 8h11M12 4v4"/><circle cx="12" cy="13" r="1.8"/>',
+    clock:    '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+    ball:     '<circle cx="12" cy="12" r="9"/><path d="M4.2 7.2c4.6 1.6 9.2 1.6 13.8 0M4.2 16.8c4.6-1.6 9.2-1.6 13.8 0"/>',
+    target:   '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/>',
+    trash:    '<path d="M4 7h16M10 7V5.4A1.4 1.4 0 0 1 11.4 4h1.2A1.4 1.4 0 0 1 14 5.4V7M6.5 7l.8 12.1A1.6 1.6 0 0 0 8.9 20.6h6.2a1.6 1.6 0 0 0 1.6-1.5L17.5 7"/>',
+    warn:     '<circle cx="12" cy="12" r="9"/><path d="M12 7.6v5M12 16.2h.01"/>',
+    check:    '<path d="M4.5 12.6l4.6 4.6L19.5 6.8"/>',
+    empty:    '<path d="M22 32c15 5.4 30 5.4 45 0M22 60c15-5.4 30-5.4 45 0" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
+  };
+
+  /* ============ DOM ============ */
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    typeGroup: $('typeGroup'), fMinutes: $('fMinutes'), fHits: $('fHits'), fNote: $('fNote'),
+    eMinutes: $('eMinutes'), eHits: $('eHits'), eNote: $('eNote'), noteCount: $('noteCount'),
+    submitBtn: $('submitBtn'), formSub: $('formSub'),
+    sCount: $('sCount'), sMinutes: $('sMinutes'), sHits: $('sHits'),
+    donut: $('donut'), donutNum: $('donutNum'), legend: $('legend'), chartSub: $('chartSub'),
+    list: $('list'), listCount: $('listCount'), filterBar: $('filterBar'), footCount: $('footCount'),
+    clearBtn: $('clearBtn'), themeBtn: $('themeBtn'), toastHost: $('toastHost')
+  };
+
+  /* ============ 状态 ============ */
+  let records = [];
+  let filter = 'all';
+  let selectedType = TYPES[0].id;
+
+  /* ============ 工具 ============ */
+  const svgIcon = (d, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 2}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const fmt = (n) => (Number(n) || 0).toLocaleString('zh-CN');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '未知时间';
+    const now = new Date();
+    const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    const y = new Date(now.getTime() - 86400000);
+    const hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const md = (d.getMonth() + 1) + '月' + d.getDate() + '日';
+    if (sameDay(d, now)) return '今天 ' + hm;
+    if (sameDay(d, y)) return '昨天 ' + hm;
+    if (d.getFullYear() === now.getFullYear()) return md + ' ' + hm;
+    return d.getFullYear() + '年' + md + ' ' + hm;
+  }
+
+  function fmtFull(ts) {
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '未知时间';
+    const wk = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()];
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${wk} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  /* ============ 持久化（含容错） ============ */
+  function load() {
+    let raw = null;
+    try {
+      raw = localStorage.getItem(STORE_KEY);
+    } catch (e) {
+      toast('浏览器禁用了本地存储，本次记录不会被保存', 'warn');
+      return [];
+    }
+    if (!raw) return [];
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      console.warn('[tennis] 数据解析失败，已重置：', e);
+      try { localStorage.setItem(STORE_KEY + '-broken-' + Date.now(), raw); } catch (_) {}
+      toast('检测到损坏的本地数据，已自动修复', 'warn');
+      return [];
+    }
+    if (!Array.isArray(data)) return [];
+
+    // 逐条清洗：丢弃结构非法项，修补可修复项
+    const cleaned = [];
+    let dropped = 0;
+    for (let i = 0; i < data.length; i++) {
+      const it = data[i];
+      if (!it || typeof it !== 'object') { dropped++; continue; }
+
+      const type = TYPE_MAP[it.type] ? it.type : null;
+      const minutes = Number(it.minutes);
+      const hits = Number(it.hits);
+      const createdAt = Number(it.createdAt);
+
+      if (!type || !isFinite(minutes) || !isFinite(hits)) { dropped++; continue; }
+      if (minutes <= 0 || hits < 0) { dropped++; continue; }
+      if (!isFinite(createdAt) || createdAt <= 0) { dropped++; continue; }
+
+      cleaned.push({
+        id: typeof it.id === 'string' && it.id ? it.id : uid(),
+        type: type,
+        minutes: Math.min(Math.floor(minutes), MAX_MINUTES),
+        hits: Math.min(Math.floor(hits), MAX_HITS),
+        note: typeof it.note === 'string' ? it.note.slice(0, NOTE_MAX) : '',
+        createdAt: createdAt
+      });
+    }
+    if (dropped > 0) {
+      console.warn('[tennis] 已丢弃 ' + dropped + ' 条非法记录');
+      setTimeout(() => toast('已过滤 ' + dropped + ' 条损坏的历史记录', 'warn'), 400);
+    }
+    cleaned.sort((a, b) => b.createdAt - a.createdAt);
+    return cleaned;
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(records));
+    } catch (e) {
+      toast('保存失败：本地存储空间不足或被禁用', 'warn');
+    }
+  }
+
+  /* ============ 校验 ============ */
+  function setErr(input, box, msg) {
+    if (msg) {
+      input.classList.add('err');
+      box.innerHTML = svgIcon(ICONS.warn, 2.2) + '<span>' + esc(msg) + '</span>';
+      box.classList.add('on');
+    } else {
+      input.classList.remove('err');
+      box.classList.remove('on');
+      box.innerHTML = '';
+    }
+    return !msg;
+  }
+
+  function validateMinutes(silent) {
+    const v = el.fMinutes.value.trim();
+    if (v === '') return ok(el.fMinutes, el.eMinutes, silent, '请填写训练时长');
+    if (!/^\d+$/.test(v)) return ok(el.fMinutes, el.eMinutes, silent, '时长必须是正整数（不能有小数、负号或文字）');
+    const n = Number(v);
+    if (n <= 0) return ok(el.fMinutes, el.eMinutes, silent, '时长需大于 0 分钟');
+    if (n > MAX_MINUTES) return ok(el.fMinutes, el.eMinutes, silent, '时长不能超过 ' + MAX_MINUTES + ' 分钟');
+    return ok(el.fMinutes, el.eMinutes, silent, '');
+  }
+
+  function validateHits(silent) {
+    const v = el.fHits.value.trim();
+    if (v === '') return ok(el.fHits, el.eHits, silent, '请填写击球次数');
+    if (!/^\d+$/.test(v)) return ok(el.fHits, el.eHits, silent, '击球次数必须是非负整数');
+    const n = Number(v);
+    if (n > MAX_HITS) return ok(el.fHits, el.eHits, silent, '击球次数过大，请确认后填写');
+    return ok(el.fHits, el.eHits, silent, '');
+  }
+
+  function validateNote() {
+    if (el.fNote.value.length > NOTE_MAX) {
+      el.fNote.value = el.fNote.value.slice(0, NOTE_MAX);
+    }
+    el.noteCount.textContent = el.fNote.value.length;
+    setErr(el.fNote, el.eNote, '');
+    return true;
+  }
+
+  // silent=true 时仅判断不提示（用于输入中的即时反馈节流）
+  function ok(input, box, silent, msg) {
+    if (silent) {
+      const valid = !msg;
+      if (valid) { input.classList.remove('err'); box.classList.remove('on'); box.innerHTML = ''; }
+      return valid;
+    }
+    return setErr(input, box, msg);
+  }
+
+  /* ============ 渲染 ============ */
+  function render() {
+    renderStats();
+    renderChart();
+    renderFilter();
+    renderList();
+    const today = records.filter((r) => {
+      const d = new Date(r.createdAt), n = new Date();
+      return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+    }).length;
+    el.formSub.textContent = '今天第 ' + (today + 1) + ' 次';
+    el.footCount.textContent = records.length;
+    el.listCount.textContent = records.length + ' 条';
+  }
+
+  function renderStats() {
+    const totalMin = records.reduce((s, r) => s + r.minutes, 0);
+    const totalHits = records.reduce((s, r) => s + r.hits, 0);
+    el.sCount.innerHTML = fmt(records.length) + '<small>次</small>';
+    el.sMinutes.innerHTML = fmt(totalMin) + '<small>分钟</small>';
+    el.sHits.innerHTML = fmt(totalHits) + '<small>次</small>';
+  }
+
+  function renderChart() {
+    const totalHits = records.reduce((s, r) => s + r.hits, 0);
+    el.donutNum.textContent = fmt(totalHits);
+
+    // 统计各类型击球数
+    const stat = TYPES.map((t) => {
+      const arr = records.filter((r) => r.type === t.id);
+      return {
+        type: t,
+        count: arr.length,
+        hits: arr.reduce((s, r) => s + r.hits, 0),
+        minutes: arr.reduce((s, r) => s + r.minutes, 0)
+      };
+    });
+    const active = stat.filter((s) => s.hits > 0);
+    el.chartSub.textContent = totalHits > 0 ? '按击球数占比' : '暂无数据';
+
+    // 环形图
+    const R = 54, C = 2 * Math.PI * R;
+    el.donut.innerHTML = '';
+    const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    track.setAttribute('cx', '70'); track.setAttribute('cy', '70'); track.setAttribute('r', String(R));
+    track.setAttribute('stroke-width', '17');
+    track.style.stroke = 'var(--surface-2)';   // 内联样式，确保 CSS 变量可用
+    el.donut.appendChild(track);
+
+    if (totalHits > 0) {
+      let offset = 0;
+      active.forEach((s) => {
+        const raw = C * (s.hits / totalHits);
+        const gap = active.length > 1 ? 2 : 0;
+        const len = Math.max(raw - gap, 0.6);
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', '70'); c.setAttribute('cy', '70'); c.setAttribute('r', String(R));
+        c.setAttribute('stroke-width', '17');
+        c.style.stroke = s.type.color;
+        c.setAttribute('stroke-dasharray', len + ' ' + (C - len));
+        c.setAttribute('stroke-dashoffset', String(-offset));
+        c.setAttribute('stroke-linecap', 'round');
+        const pct = ((s.hits / totalHits) * 100).toFixed(1);
+        c.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'title'))
+         .textContent = s.type.name + ' ' + pct + '%';
+        el.donut.appendChild(c);
+        offset += raw;
+      });
+    }
+
+    // 图例 + 柱状条
+    if (totalHits === 0) {
+      el.legend.innerHTML = '<div class="chart-empty">还没有数据，先在左侧添加一条训练记录吧 🎾</div>';
+      return;
+    }
+    const max = Math.max.apply(null, stat.map((s) => s.hits)) || 1;
+    el.legend.innerHTML = stat.map((s) => {
+      const pct = totalHits ? (s.hits / totalHits) * 100 : 0;
+      const w = (s.hits / max) * 100;
+      return '' +
+        '<div class="lg" style="--c:' + s.type.color + '">' +
+          '<span class="lg-dot"></span>' +
+          '<div class="lg-name">' + esc(s.type.name) + '<span>' + s.count + ' 次 · ' + fmt(s.minutes) + ' 分钟</span></div>' +
+          '<div class="lg-pct">' + pct.toFixed(1) + '%</div>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + w.toFixed(2) + '%"></div></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderFilter() {
+    const chips = [{ id: 'all', name: '全部', color: 'var(--primary)' }].concat(TYPES);
+    el.filterBar.innerHTML = chips.map((c) => {
+      const n = c.id === 'all' ? records.length : records.filter((r) => r.type === c.id).length;
+      return '<button class="chip' + (filter === c.id ? ' on' : '') + '" data-filter="' + c.id + '"' +
+        (c.id === 'all' ? '' : ' style="--c:' + c.color + '"') + '>' +
+        esc(c.name) + ' ' + n + '</button>';
+    }).join('');
+  }
+
+  function renderList() {
+    const arr = filter === 'all' ? records : records.filter((r) => r.type === filter);
+
+    if (records.length === 0) {
+      el.list.innerHTML =
+        '<div class="empty">' +
+          '<svg viewBox="0 0 92 92" stroke="none">' +
+            '<circle cx="46" cy="46" r="30" fill="var(--surface-2)"/>' +
+            '<g stroke="var(--text-3)" fill="none">' + ICONS.empty + '</g>' +
+          '</svg>' +
+          '<h3>还没有训练记录</h3>' +
+          '<p>填写左侧表单，记录你的第一次挥拍 🎾</p>' +
+        '</div>';
+      return;
+    }
+    if (arr.length === 0) {
+      el.list.innerHTML =
+        '<div class="empty">' +
+          '<svg viewBox="0 0 92 92" stroke="none">' +
+            '<circle cx="46" cy="46" r="30" fill="var(--surface-2)"/>' +
+            '<g stroke="var(--text-3)" fill="none">' + ICONS.empty + '</g>' +
+          '</svg>' +
+          '<h3>该类型下暂无记录</h3>' +
+          '<p>切换到「全部」查看其它训练类型</p>' +
+        '</div>';
+      return;
+    }
+
+    el.list.innerHTML = arr.map((r) => {
+      const t = TYPE_MAP[r.type] || TYPES[0];
+      const rate = r.minutes > 0 ? (r.hits / r.minutes).toFixed(1) : '0.0';
+      return '' +
+        '<article class="rec" data-id="' + r.id + '" style="--c:' + t.color + '">' +
+          '<div class="rec-ico">' + svgIcon(ICONS[r.type]) + '</div>' +
+          '<div class="rec-main">' +
+            '<div class="rec-top">' +
+              '<span class="rec-type">' + esc(t.name) + '</span>' +
+              '<span class="tag">' + esc(t.desc) + '</span>' +
+              '<span class="rec-time" title="' + esc(fmtFull(r.createdAt)) + '">' + esc(fmtTime(r.createdAt)) + '</span>' +
+            '</div>' +
+            '<div class="rec-metrics">' +
+              '<span class="metric">' + svgIcon(ICONS.clock) + '<b>' + fmt(r.minutes) + '</b> 分钟</span>' +
+              '<span class="metric">' + svgIcon(ICONS.ball) + '<b>' + fmt(r.hits) + '</b> 次击球</span>' +
+              '<span class="metric">' + svgIcon(ICONS.target) + '<b>' + rate + '</b> 次/分钟</span>' +
+            '</div>' +
+            (r.note ? '<div class="rec-note">' + esc(r.note) + '</div>' : '') +
+          '</div>' +
+          '<button class="del" data-del="' + r.id + '" title="删除这条记录" aria-label="删除记录">' + svgIcon(ICONS.trash) + '</button>' +
+        '</article>';
+    }).join('');
+  }
+
+  /* ============ 交互 ============ */
+  function toast(msg, kind, actionLabel, actionFn) {
+    // 只保留最新一条，避免旧 toast 的撤销按钮产生脏操作
+    Array.prototype.slice.call(el.toastHost.children).forEach((old) => old.remove());
+
+    const box = document.createElement('div');
+    box.className = 'toast' + (kind === 'warn' ? ' warn' : '');
+    box.innerHTML =
+      '<span class="ti">' + svgIcon(kind === 'warn' ? ICONS.warn : ICONS.check, 2.4) + '</span>' +
+      '<span class="tx">' + esc(msg) + '</span>';
+    if (actionLabel && actionFn) {
+      const b = document.createElement('button');
+      b.className = 'undo';
+      b.textContent = actionLabel;
+      b.onclick = () => { actionFn(); dismiss(); };
+      box.appendChild(b);
+    }
+    el.toastHost.appendChild(box);
+    let done = false;
+    function dismiss() {
+      if (done) return;
+      done = true;
+      box.classList.add('out');
+      setTimeout(() => box.remove(), 300);
+    }
+    setTimeout(dismiss, actionLabel ? 5200 : 2600);
+    return dismiss;
+  }
+
+  function addRecord() {
+    const v1 = validateMinutes(false);
+    const v2 = validateHits(false);
+    validateNote();
+    if (!v1 || !v2) {
+      const firstBad = !v1 ? el.fMinutes : el.fHits;
+      firstBad.focus();
+      toast('请先修正表单中的错误', 'warn');
+      return;
+    }
+    const rec = {
+      id: uid(),
+      type: selectedType,
+      minutes: Number(el.fMinutes.value.trim()),
+      hits: Number(el.fHits.value.trim()),
+      note: el.fNote.value.trim(),
+      createdAt: Date.now()
+    };
+    records.unshift(rec);
+    save();
+    render();
+
+    el.fMinutes.value = '';
+    el.fHits.value = '';
+    el.fNote.value = '';
+    el.noteCount.textContent = '0';
+    [el.eMinutes, el.eHits].forEach((b) => { b.classList.remove('on'); b.innerHTML = ''; });
+    [el.fMinutes, el.fHits].forEach((i) => i.classList.remove('err'));
+    el.fMinutes.focus();
+
+    toast('已保存：' + TYPE_MAP[rec.type].name + ' ' + rec.minutes + ' 分钟 / ' + rec.hits + ' 次击球');
+  }
+
+  function deleteRecord(id) {
+    const idx0 = records.findIndex((r) => r.id === id);
+    if (idx0 < 0) return;
+    const rec = records[idx0];
+    const node = el.list.querySelector('.rec[data-id="' + id + '"]');
+    if (node) node.classList.add('out');
+
+    setTimeout(() => {
+      const idx = records.indexOf(rec);   // 动画期间数据可能变化，重新定位
+      if (idx < 0) return;
+      records.splice(idx, 1);
+      save();
+      render();
+      let used = false;
+      toast('已删除 1 条记录', 'warn', '撤销', () => {
+        if (used || records.indexOf(rec) >= 0) return;  // 防止重复插入
+        used = true;
+        records.splice(Math.min(idx, records.length), 0, rec);
+        save();
+        render();
+        toast('已恢复该记录');
+      });
+    }, 240);
+  }
+
+  function clearAll() {
+    if (records.length === 0) { toast('当前没有可清空的记录', 'warn'); return; }
+    const backup = records.slice();
+    records = [];
+    save();
+    filter = 'all';
+    render();
+    let used = false;
+    toast('已清空 ' + backup.length + ' 条记录', 'warn', '撤销', () => {
+      if (used || records.length > 0) return;  // 防止重复恢复
+      used = true;
+      records = backup;
+      save();
+      render();
+      toast('已恢复全部记录');
+    });
+  }
+
+  /* ============ 初始化 ============ */
+  function renderTypes() {
+    el.typeGroup.innerHTML = TYPES.map((t, i) =>
+      '<label class="type-opt" style="--tc:' + t.color + ';--tc-soft:' + t.soft + '">' +
+        '<input type="radio" name="ttype" value="' + t.id + '"' + (i === 0 ? ' checked' : '') + '>' +
+        '<span class="type-card">' +
+          '<span class="type-ico">' + svgIcon(ICONS[t.id]) + '</span>' +
+          '<span><span class="type-name">' + t.name + '</span><br><span class="type-desc">' + t.desc + '</span></span>' +
+        '</span>' +
+      '</label>'
+    ).join('');
+    el.typeGroup.addEventListener('change', (e) => {
+      if (e.target.name === 'ttype') selectedType = e.target.value;
+    });
+  }
+
+  function bindEvents() {
+    // 输入即时校验
+    el.fMinutes.addEventListener('input', () => {
+      const v = el.fMinutes.value.trim();
+      if (v === '') { setErr(el.fMinutes, el.eMinutes, ''); return; }
+      validateMinutes(false);
+    });
+    el.fMinutes.addEventListener('blur', () => { if (el.fMinutes.value.trim() !== '') validateMinutes(false); });
+
+    el.fHits.addEventListener('input', () => {
+      const v = el.fHits.value.trim();
+      if (v === '') { setErr(el.fHits, el.eHits, ''); return; }
+      validateHits(false);
+    });
+    el.fHits.addEventListener('blur', () => { if (el.fHits.value.trim() !== '') validateHits(false); });
+
+    el.fNote.addEventListener('input', validateNote);
+
+    // 只允许数字
+    [el.fMinutes, el.fHits].forEach((inp) => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addRecord(); }
+      });
+    });
+
+    el.submitBtn.addEventListener('click', addRecord);
+
+    // 列表删除（事件委托）
+    el.list.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-del]');
+      if (btn) deleteRecord(btn.getAttribute('data-del'));
+    });
+
+    // 筛选（事件委托）
+    el.filterBar.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-filter]');
+      if (!chip) return;
+      filter = chip.getAttribute('data-filter');
+      renderFilter();
+      renderList();
+    });
+
+    el.clearBtn.addEventListener('click', clearAll);
+
+    // 主题
+    el.themeBtn.addEventListener('click', () => {
+      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem(THEME_KEY, next); } catch (_) {}
+      renderChart(); // 刷新图表以套用新主题色变量
+    });
+  }
+
+  function initTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (_) {}
+    if (!saved) {
+      saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+
+  function init() {
+    initTheme();
+    renderTypes();
+    bindEvents();
+    records = load();
+    render();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
