@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a1017">
+<title>TennisLens · 实时姿态</title>
+<style>
+:root{
+  --bg:#0a1017; --surface:#131d29; --surface2:#182533; --line:#243547;
+  --text:#e8f0f8; --text2:#93a7bd; --text3:#61788f;
+  --pri:#3b9dff; --ok:#2fd6a4; --warn:#fbbf24; --bad:#ff6b6b;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;
+  min-height:100vh;min-height:100dvh;overscroll-behavior:none}
+.stage{position:fixed;inset:0;display:grid;place-items:center;background:#000}
+#cam,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#overlay{object-fit:fill}
+#cam.mirror{transform:scaleX(-1)}
+
+.hud{position:fixed;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;z-index:5;
+  background:linear-gradient(rgba(0,0,0,.65),transparent)}
+.chip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;
+  background:rgba(10,16,23,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);
+  font-size:11px;font-weight:700;color:#cfe0f0}
+.chip b{color:#fff;font-family:ui-monospace,Consolas,monospace}
+.chip .k{color:#7d93a8;font-weight:600}
+.dot{width:6px;height:6px;border-radius:99px;background:var(--bad)}
+.dot.live{background:var(--ok);box-shadow:0 0 0 3px rgba(47,214,164,.25)}
+
+.bottom{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:12px 12px calc(14px + env(safe-area-inset-bottom));
+  display:flex;gap:10px;justify-content:center;
+  background:linear-gradient(transparent,rgba(0,0,0,.65))}
+.mbtn{padding:13px 20px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(10,16,23,.72);backdrop-filter:blur(8px);color:#e8f0f8;
+  font-size:14px;font-weight:800;transition:all .2s}
+.mbtn:active{transform:scale(.96)}
+.mbtn.pri{background:linear-gradient(135deg,#3b9dff,#2fd6a4);border:0;color:#fff;
+  box-shadow:0 6px 20px rgba(59,157,255,.35)}
+.mbtn:disabled{opacity:.4}
+
+.gate{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:var(--bg);padding:24px;text-align:center}
+.gate.hidden{display:none}
+.gate h1{font-size:20px;font-weight:800;letter-spacing:-.3px;margin-bottom:6px}
+.gate p{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:18px}
+.gate .note{font-size:11px;color:var(--text3);margin-top:14px;line-height:1.8}
+.err{color:var(--bad);font-size:13px;margin-top:12px;display:none}
+.err.show{display:block}
+.loading{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--pri);
+  border-radius:99px;animation:spin .8s linear infinite;vertical-align:-3px;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div>
+    <h1>TennisLens · 实时姿态</h1>
+    <p>打开摄像头，实时捕捉人体 33 点骨骼。<br>全部计算在手机本地完成，视频不会上传。</p>
+    <button class="mbtn pri" id="btnStart">开启摄像头</button>
+    <div class="err" id="gateErr"></div>
+    <div class="note">
+      首次使用需联网加载模型（约 5MB，之后有缓存）<br>
+      建议：光线充足 · 全身入画 · 手机竖持
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+  <video id="cam" class="mirror" playsinline muted autoplay></video>
+  <canvas id="overlay"></canvas>
+</div>
+
+<div class="hud">
+  <div class="chip"><span class="dot" id="dotStatus"></span><span id="status">初始化</span></div>
+  <div class="chip"><span class="k">FPS</span><b id="fps">–</b></div>
+  <div class="chip"><span class="k">延迟</span><b id="lat">–</b></div>
+  <div class="chip"><span class="k">人体</span><b id="np">0</b></div>
+</div>
+
+<div class="bottom">
+  <button class="mbtn" id="btnFlip">切换镜头</button>
+  <button class="mbtn pri" id="btnStop">停止</button>
+</div>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver } from
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const $ = id => document.getElementById(id);
+const video = $('cam'), canvas = $('overlay'), ctx = canvas.getContext('2d');
+
+// BlazePose 33 点骨架连线
+const EDGES = [
+  [11,12],[11,13],[13,15],[15,17],[15,19],[15,21],[17,19],
+  [12,14],[14,16],[16,18],[18,20],[16,22],[18,20],
+  [11,23],[12,24],[23,24],
+  [23,25],[25,27],[27,29],[27,31],[29,31],
+  [24,26],[26,28],[28,30],[28,32],[30,32],
+  [0,11],[0,12],
+];
+let landmarker = null, running = false, mirrored = true;
+let lastVideoTime = -1, fpsBuf = [], latBuf = [];
+
+function setStatus(t, live=false) {
+  $('status').textContent = t;
+  $('dotStatus').classList.toggle('live', live);
+}
+
+async function init() {
+  setStatus('加载模型…');
+  const fileset = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  landmarker = await PoseLandmarker.createFromOptions(fileset, {
+    baseOptions: {
+      // 模型 self-host 于本仓库（同源加载），避免部分网络无法访问 google 存储
+      modelAssetPath: "models/pose_landmarker_lite.task",
+      delegate: "GPU",
+    },
+    runningMode: "VIDEO",
+    numPoses: 2,
+  });
+}
+
+async function openCamera(facing = 'user') {
+  if (running) { stop(); }
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width: {ideal: 1280}, height: {ideal: 720} },
+    audio: false,
+  });
+  video.srcObject = stream;
+  mirrored = facing === 'user';
+  video.classList.toggle('mirror', mirrored);
+  await new Promise(r => video.onloadedmetadata = r);
+  await video.play();
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+}
+
+function stop() {
+  running = false;
+  const s = video.srcObject;
+  if (s) s.getTracks().forEach(t => t.stop());
+  video.srcObject = null;
+}
+
+function drawSkeleton(landmarks) {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const px = l => {
+    let x = l.x * W, y = l.y * H;
+    if (mirrored) x = W - x;
+    return [x, y, l.visibility ?? 1];
+  };
+  // 骨骼连线
+  for (const [a, b] of EDGES) {
+    const A = px(landmarks[a]), B = px(landmarks[b]);
+    if (A[2] < 0.4 || B[2] < 0.4) continue;
+    ctx.strokeStyle = 'rgba(124,196,255,.9)';
+    ctx.lineWidth = Math.max(2, W/320);
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+  }
+  // 关节点
+  for (const l of landmarks) {
+    const [x, y, vis] = px(l);
+    if (vis < 0.4) continue;
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath(); ctx.arc(x, y, Math.max(3, W/280), 0, Math.PI*2); ctx.fill();
+  }
+}
+
+function loop() {
+  if (!running) return;
+  if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const t0 = performance.now();
+    const res = landmarker.detectForVideo(video, t0);
+    const dt = performance.now() - t0;
+    latBuf.push(dt); if (latBuf.length > 15) latBuf.shift();
+    fpsBuf.push(dt); if (fpsBuf.length > 30) fpsBuf.shift();
+
+    const lms = res.landmarks?.[0];
+    if (lms) drawSkeleton(lms);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    $('np').textContent = res.landmarks?.length ?? 0;
+    $('lat').textContent = Math.round(latBuf.reduce((a,b)=>a+b,0)/latBuf.length) + 'ms';
+    const fps = 1000 / (fpsBuf.reduce((a,b)=>a+b,0) / fpsBuf.length);
+    $('fps').textContent = fps.toFixed(0);
+  }
+  requestAnimationFrame(loop);
+}
+
+$('btnStart').addEventListener('click', async () => {
+  const gate = $('gate'), err = $('gateErr');
+  err.classList.remove('show');
+  $('btnStart').disabled = true;
+  $('btnStart').innerHTML = '<span class="loading"></span>加载中…';
+  try {
+    setStatus('加载模型…');
+    await init();
+    setStatus('打开摄像头…');
+    await openCamera('user');
+    running = true;
+    gate.classList.add('hidden');
+    setStatus('运行中', true);
+    loop();
+  } catch (e) {
+    err.textContent = '失败：' + (e.message || e.name) +
+      '。常见原因：拒绝了摄像头权限 / 非HTTPS环境 / 模型下载被网络拦截。';
+    err.classList.add('show');
+    $('btnStart').disabled = false;
+    $('btnStart').textContent = '重试';
+  }
+});
+
+$('btnFlip').addEventListener('click', async () => {
+  if (!landmarker) return;
+  const wasRunning = running;
+  try {
+    await openCamera(mirrored ? 'environment' : 'user');
+    if (!wasRunning) return;
+    running = true;
+    loop();
+  } catch (e) { setStatus('切换失败'); }
+});
+
+$('btnStop').addEventListener('click', () => {
+  stop();
+  $('gate').classList.remove('hidden');
+  $('btnStart').disabled = false;
+  $('btnStart').textContent = '重新开启';
+  setStatus('已停止');
+});
+</script>
+</body>
+</html>
